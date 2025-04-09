@@ -5,15 +5,25 @@ import numpy as np
 def charge_estimate_agg(claims, min_n, base_agg_keys, agg_key_d):
     base_agg = claims.groupby(base_agg_keys, as_index=False).agg(base_n=('total_code_cost', 'count'),
                                                                  base_mean=('total_code_cost', 'mean'))
-    meets_min_msk = base_agg['base_n'].ge(min_n)
+    base_agg['n'] = base_agg['base_n']
+    base_agg['mean'] = base_agg['base_mean']
     base_agg['status'] = 'not_defined'
+    meets_min_msk = base_agg['base_n'].ge(min_n)
     base_agg.loc[meets_min_msk, 'status'] = 'by_fac_code'
     for agg_level, agg_keys in agg_key_d.items():
-        base_agg[agg_level + '_mean'] = base_agg.groupby(agg_keys)['base_mean'].transform('mean')  # sub weighted mean
-        base_agg[agg_level + '_count'] = base_agg.groupby(agg_keys)['base_n'].transform('sum')
-        base_agg.loc[~meets_min_msk & base_agg[agg_level + '_count'].ge(min_n), 'status'] = agg_level
+        _agg = (base_agg.groupby(agg_keys, as_index=False)
+                .agg({'base_mean': lambda x: weighted_average(x, base_agg, 'base_n'), 'base_n': 'sum'}))
+        base_agg = pd.merge(base_agg, _agg, on=agg_keys, how='left', validate='m:1', suffixes=('', '_' + agg_level))
+        meets_min_msk = base_agg['base_n_' + agg_level].ge(min_n) & base_agg['status'].eq('not_defined')
+        base_agg.loc[meets_min_msk, 'n'] = base_agg['base_n_' + agg_level]
+        base_agg.loc[meets_min_msk, 'mean'] = base_agg['base_mean_' + agg_level]
+        base_agg.loc[meets_min_msk, 'status'] = agg_level
 
     return base_agg
+
+
+def weighted_average(series, df, weight_col):
+    return np.dot(series, df.loc[series.index, weight_col])/np.sum(df.loc[series.index, weight_col])
 
 
 rng = np.random.default_rng(seed=123456)
