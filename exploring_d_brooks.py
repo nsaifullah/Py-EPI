@@ -53,7 +53,10 @@ word_count_d = corpus.token2id
 word_idx_list = model.wv.index_to_key
 model_training_results = pd.DataFrame(model.wv.vectors.T, columns=word_idx_list)
 
-focus_word = 'tradition'
+focus_word = 'lefties'
 cos_scores = {}
 for word in word_idx_list:
     cos_scores[word] = cosine_similarity(model_training_results[focus_word], model_training_results[word])
+cos_results_s = pd.Series(data=cos_scores)
+print(cos_results_s.sort_values(ascending=False).head())
+print(cos_results_s.sort_values().head())
