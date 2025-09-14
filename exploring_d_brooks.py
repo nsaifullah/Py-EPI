@@ -1,5 +1,8 @@
 import string
+import numpy as np
+import pandas as pd
 from gensim import corpora
+from gensim.models import Word2Vec
 
 
 def remove_singleton_words(list_of_lines: list[list[str]]):
@@ -14,6 +17,14 @@ def remove_singleton_words(list_of_lines: list[list[str]]):
     ]
 
     return out_lines
+
+
+def cosine_similarity(a, b):
+    numerator = np.dot(a, b)
+    denominator = np.linalg.norm(a) * np.linalg.norm(b)
+    score = numerator / denominator
+
+    return score
 
 
 root_dir = r'C:\Users\nikhi\Dropbox\JaldiKaro\DataScience'
@@ -33,5 +44,16 @@ processed_lines = [
     for doc_line in docu_lines
 ]
 
-dictionary = corpora.Dictionary(processed_lines)
-dictionary.save(f'{root_dir}/NLP/src/dbrooks_part_one.dict')
+# dictionary = corpora.Dictionary(processed_lines)
+# dictionary.save(f'{root_dir}/NLP/src/dbrooks_part_one.dict')
+corpus = corpora.Dictionary.load(f'{root_dir}/NLP/src/dbrooks_part_one.dict')
+model = Word2Vec(sentences=processed_lines, vector_size=100, window=5, min_count=1, workers=6)
+
+word_count_d = corpus.token2id
+word_idx_list = model.wv.index_to_key
+model_training_results = pd.DataFrame(model.wv.vectors.T, columns=word_idx_list)
+
+focus_word = 'tradition'
+cos_scores = {}
+for word in word_idx_list:
+    cos_scores[word] = cosine_similarity(model_training_results[focus_word], model_training_results[word])
